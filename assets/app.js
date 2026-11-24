@@ -85,8 +85,14 @@ async function checkPassword(value) {
 }
 
 async function tryUnlockStoredToken(password) {
-  const enc = (window.APP_CONFIG || {}).encryptedGhToken;
-  if (!enc || state.ghToken) return;
+  const cfg = window.APP_CONFIG || {};
+  await decryptIntoState(password, cfg.encryptedGhToken, 'ghToken', 'gh_token');
+  await decryptIntoState(password, cfg.encryptedGroqKey, 'groqKey', 'groq_api_key');
+  if (state.groqKey) state.keySource = localStorage.getItem('groq_api_key') ? 'local' : 'password';
+}
+
+async function decryptIntoState(password, enc, stateKey, storageKey) {
+  if (!enc || state[stateKey]) return;
   try {
     const pwKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
     const key = await crypto.subtle.deriveKey(
@@ -98,12 +104,9 @@ async function tryUnlockStoredToken(password) {
     const combined = new Uint8Array(cipherBytes.length + tagBytes.length);
     combined.set(cipherBytes, 0); combined.set(tagBytes, cipherBytes.length);
     const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64ToBytes(enc.i) }, key, combined);
-    const token = new TextDecoder().decode(plainBuf);
-    if (token) {
-      state.ghToken = token;
-      localStorage.setItem('gh_token', token);
-    }
-  } catch (e) { console.warn('Token decrypt failed', e); }
+    const val = new TextDecoder().decode(plainBuf);
+    if (val) { state[stateKey] = val; localStorage.setItem(storageKey, val); }
+  } catch (e) { console.warn('Decrypt failed', stateKey, e); }
 }
 
 function b64ToBytes(b64) { const bin = atob(b64); return Uint8Array.from(bin, c => c.charCodeAt(0)); }
