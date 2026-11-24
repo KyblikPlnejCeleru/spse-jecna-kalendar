@@ -2,7 +2,7 @@ const TYPE_LABELS = {
   test: 'Test', ukol: 'Úkol', zkouseni: 'Zkoušení', projekt: 'Projekt', akce: 'Akce', jine: 'Jiné'
 };
 const TYPE_SET = new Set(Object.keys(TYPE_LABELS));
-const AUTH_HASH = 'IQWp4bBynjpTjEu0+DP97pQoc6MpHuqo0lT8r+E7k1w='; // SHA-256 base64
+const AUTH_HASH = 'IWquzRgKeTu2yYksDC9RytvjpJBQB0DaF7B7CjMo6OY='; // SHA-256 base64
 const AUTH_KEY = 'calendar_auth_ok';
 
 const CFG = window.APP_CONFIG || {};
