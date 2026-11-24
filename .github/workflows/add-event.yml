@@ -1,0 +1,87 @@
+name: Add event from issue or dispatch
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+  workflow_dispatch:
+    inputs:
+      text:
+        description: "Událost ve zkratce, např. matika test 5.12. 9:30"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: events-json
+  cancel-in-progress: false
+
+jobs:
+  add:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.issue.labels.*.name, 'event')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Resolve input text
+        id: input
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let text = '';
+            if (context.eventName === 'workflow_dispatch') {
+              text = context.payload.inputs.text;
+            } else {
+              const body = context.payload.issue.body || '';
+              const m = body.match(/### Co se děje\?\s+([\s\S]*?)(?:\n###|\n$|$)/i);
+              text = (m ? m[1] : body).trim();
+            }
+            core.setOutput('text', text);
+
+      - name: Parse event with Groq
+        id: parse
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL || 'llama-3.3-70b-versatile' }}
+        run: |
+          EVENT=$(node scripts/parse-event.mjs "${{ steps.input.outputs.text }}")
+          echo "event=$EVENT" >> "$GITHUB_OUTPUT"
+
+      - name: Add event to data/events.json
+        id: add
+        run: |
+          RESULT=$(node scripts/add-event.mjs data/events.json '${{ steps.parse.outputs.event }}' "${{ github.event_name }}")
+          echo "result=$RESULT" >> "$GITHUB_OUTPUT"
+
+      - name: Commit changes
+        run: |
+          if git diff --quiet -- data/events.json; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/events.json
+          git commit -m "Add event: ${{ fromJson(steps.parse.outputs.event).title }} (${{ fromJson(steps.parse.outputs.event).date }})"
+          git push
+
+      - name: Comment and close issue
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const result = JSON.parse(`${{ steps.add.outputs.result }}`);
+            const e = result.event;
+            const body = result.added
+              ? `✅ Přidáno do kalendáře: **${e.title}** (${e.subject || 'bez předmětu'}, ${e.type}) — ${e.date}${e.time ? ' ' + e.time : ''}`
+              : `ℹ️ Událost už v kalendáři existuje: **${e.title}** — ${e.date}${e.time ? ' ' + e.time : ''}`;
+            await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+            if (result.added) {
+              await github.rest.issues.update({ ...context.repo, issue_number: context.issue.number, state: 'closed' });
+            }

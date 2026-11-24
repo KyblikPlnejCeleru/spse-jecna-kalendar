@@ -1,0 +1,13 @@
+name: Přidat událost
+description: Rychle přidej test/úkol do kalendáře
+title: "[Událost] "
+labels: ["event"]
+body:
+  - type: textarea
+    id: text
+    attributes:
+      label: Co se děje?
+      description: "Napiš zkratkou, např.: matika test derivace 5.12. 9:30"
+      placeholder: "matika test derivace 5.12. 9:30"
+    validations:
+      required: true

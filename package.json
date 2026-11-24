@@ -1,0 +1,9 @@
+{
+  "name": "spse-jecna-kalendar",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "parse": "node scripts/parse-event.mjs",
+    "add": "node scripts/add-event.mjs"
+  }
+}

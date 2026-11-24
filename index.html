@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SPŠE Ječná – Kalendář</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+  <div class="bg"></div>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">SPŠE Ječná</p>
+      <h1>Kalendář testů a úkolů</h1>
+    </div>
+    <div class="topbar-actions">
+      <a id="repoLink" class="btn btn-ghost" target="_blank" rel="noopener">Repozitář</a>
+      <a id="newIssueLink" class="btn" target="_blank" rel="noopener">+ Přidat přes Issue</a>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel composer">
+      <div class="panel-head">
+        <h2>Rychlé přidání</h2>
+        <p>Napiš zkratkou. AI v GitHub Action to rozparsuje a zapíše do <code>data/events.json</code>.</p>
+      </div>
+      <form id="composerForm" class="composer-form">
+        <label class="field">
+          <span>Co se děje?</span>
+          <textarea id="eventInput" rows="3" placeholder="Např. matika test derivace 5.12. 9:30" required></textarea>
+        </label>
+        <div class="composer-row">
+          <button type="submit" class="btn btn-primary">Přidat do kalendáře</button>
+          <span class="hint">Otevře předvyplněné GitHub Issue. Po odeslání ho Action zpracuje.</span>
+        </div>
+      </form>
+      <div class="examples">
+        <span>Příklady:</span>
+        <button class="chip" data-example="matika test derivace 5.12. 9:30">matika test 5.12. 9:30</button>
+        <button class="chip" data-example="čj úkol sloh zítra">čj úkol zítra</button>
+        <button class="chip" data-example="prg projekt odevzdat 20.5.">prg projekt 20.5.</button>
+      </div>
+      <div id="configWarning" class="warning hidden"></div>
+    </section>
+
+    <section class="panel controls">
+      <div class="controls-left">
+        <button id="prevMonth" class="icon-btn" aria-label="Předchozí měsíc">‹</button>
+        <div class="month-label" id="monthLabel"></div>
+        <button id="nextMonth" class="icon-btn" aria-label="Další měsíc">›</button>
+        <button id="todayBtn" class="btn btn-ghost btn-small">Dnes</button>
+      </div>
+      <div class="controls-right">
+        <label class="filter"><span>Typ</span>
+          <select id="typeFilter">
+            <option value="all">Vše</option>
+            <option value="test">Test</option>
+            <option value="zkouseni">Zkoušení</option>
+            <option value="ukol">Úkol</option>
+            <option value="projekt">Projekt</option>
+            <option value="akce">Akce</option>
+            <option value="jine">Jiné</option>
+          </select>
+        </label>
+        <label class="filter"><span>Hledat</span>
+          <input id="searchInput" type="search" placeholder="předmět, název...">
+        </label>
+      </div>
+    </section>
+
+    <section class="calendar-panel panel">
+      <div class="weekday-row">
+        <div>Po</div><div>Út</div><div>St</div><div>Čt</div><div>Pá</div><div>So</div><div>Ne</div>
+      </div>
+      <div id="calendarGrid" class="calendar-grid" aria-live="polite"></div>
+    </section>
+
+    <aside class="panel agenda">
+      <div class="panel-head">
+        <h2 id="agendaTitle">Nadcházející</h2>
+        <p id="agendaSubtitle">Nejbližší testy a úkoly</p>
+      </div>
+      <div id="agendaList" class="agenda-list"></div>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    <span>Data: <code>data/events.json</code></span>
+    <span id="statusText">Načítám…</span>
+  </footer>
+
+  <script type="module" src="./assets/app.js"></script>
+</body>
+</html>
