@@ -78,9 +78,35 @@ async function checkPassword(value) {
     const bytes = new TextEncoder().encode(value);
     const digest = await crypto.subtle.digest('SHA-256', bytes);
     const b64 = btoa(String.fromCharCode(...new Uint8Array(digest)));
-    return b64 === AUTH_HASH;
+    if (b64 !== AUTH_HASH) return false;
+    await tryUnlockStoredToken(value);
+    return true;
   } catch { return false; }
 }
+
+async function tryUnlockStoredToken(password) {
+  const enc = (window.APP_CONFIG || {}).encryptedGhToken;
+  if (!enc || state.ghToken) return;
+  try {
+    const pwKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: b64ToBytes(enc.s), iterations: 200000, hash: 'SHA-256' },
+      pwKey, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
+    );
+    const cipherBytes = b64ToBytes(enc.c);
+    const tagBytes = b64ToBytes(enc.t);
+    const combined = new Uint8Array(cipherBytes.length + tagBytes.length);
+    combined.set(cipherBytes, 0); combined.set(tagBytes, cipherBytes.length);
+    const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64ToBytes(enc.i) }, key, combined);
+    const token = new TextDecoder().decode(plainBuf);
+    if (token) {
+      state.ghToken = token;
+      localStorage.setItem('gh_token', token);
+    }
+  } catch (e) { console.warn('Token decrypt failed', e); }
+}
+
+function b64ToBytes(b64) { const bin = atob(b64); return Uint8Array.from(bin, c => c.charCodeAt(0)); }
 
 async function unlock() {
   document.getElementById('authGate').classList.add('hidden');

@@ -1,6 +1,5 @@
 window.APP_CONFIG = {
-  // Záměrně prázdné. Nevkládejte sem API klíče - nasazený web je veřejný soubor.
-  // Pro přímé přidání ve webu si může uživatel uložit vlastní klíč v Nastavení (localStorage).
   groqKey: "",
-  groqModel: "llama-3.3-70b-versatile"
+  groqModel: "llama-3.3-70b-versatile",
+  encryptedGhToken: {"s":"oB5zCWMil3OUEVpDW9u/5Q==","i":"m5J2KiXXdXJDLrk4","c":"qFy1MeteLfCVOWzPtSOAfgFxwDggpAPGoVK4Dlyb5YhVGhETXtSN+Q==","t":"FSXaoEuvDiXcPVlLtpKJAw=="}
 };
