@@ -2,6 +2,8 @@ const TYPE_LABELS = {
   test: 'Test', ukol: 'Úkol', zkouseni: 'Zkoušení', projekt: 'Projekt', akce: 'Akce', jine: 'Jiné'
 };
 const TYPE_SET = new Set(Object.keys(TYPE_LABELS));
+const AUTH_HASH = 'IQWp4bBynjpTjEu0+DP97pQoc6MpHuqo0lT8r+E7k1w='; // SHA-256 base64
+const AUTH_KEY = 'calendar_auth_ok';
 
 const CFG = window.APP_CONFIG || {};
 const state = {
@@ -40,7 +42,54 @@ const els = {
   modeBadge: document.getElementById('modeBadge'),
 };
 
-init();
+boot();
+
+async function boot() {
+  wireAuth();
+  if (sessionStorage.getItem(AUTH_KEY) === '1') {
+    await unlock();
+  }
+}
+
+function wireAuth() {
+  const form = document.getElementById('authForm');
+  const input = document.getElementById('authPassword');
+  const err = document.getElementById('authError');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    err.classList.add('hidden');
+    const ok = await checkPassword(input.value);
+    if (ok) {
+      sessionStorage.setItem(AUTH_KEY, '1');
+      input.value = '';
+      await unlock();
+    } else {
+      err.classList.remove('hidden');
+      input.focus();
+      input.select();
+    }
+  });
+}
+
+async function checkPassword(value) {
+  try {
+    const bytes = new TextEncoder().encode(value);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const b64 = btoa(String.fromCharCode(...new Uint8Array(digest)));
+    return b64 === AUTH_HASH;
+  } catch {
+    return false;
+  }
+}
+
+async function unlock() {
+  document.getElementById('authGate').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('hidden');
+  if (!window.__calendarInit) {
+    window.__calendarInit = true;
+    await init();
+  }
+}
 
 async function init() {
   wireUI();
@@ -170,7 +219,7 @@ async function addDirect(text) {
     state.month = startOfMonth(new Date(record.date + 'T00:00:00'));
     els.eventInput.value = '';
     render();
-    setStatus(`Přidáno: ${record.title} (${formatHumanDate(record.date)}${record.time ? ' ' + record.time : ''}). Uloženo v tomto prohlížeči.`);
+    setStatus(`Přidáno: ${record.title} (${formatHumanDate(record.date)}${record.time ? ' ' + record.time : ''}). Uloženo jen v tomto prohlížeči.`);
     downloadEventsHint();
   } catch (err) {
     console.error(err);

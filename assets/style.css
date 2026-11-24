@@ -204,3 +204,11 @@ h2 { font-size: 1.2rem; }
 .settings-form input:focus { outline:2px solid #a8cabb; border-color:var(--brand); }
 .settings-actions { display:flex; gap:10px; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-top:6px; }
 .settings-actions-right { display:flex; gap:10px; flex-wrap:wrap; }
+
+.app-shell.hidden{display:none;}
+.auth-gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;background:rgba(244,241,234,.72);backdrop-filter:blur(6px);}
+.auth-card{width:min(440px,100%);background:var(--panel-solid);border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:var(--shadow);}
+.auth-card h2{margin:6px 0 0;font-size:1.8rem;}
+.auth-note{color:var(--muted);margin:8px 0 18px;}
+.auth-error{margin:8px 0 0;color:#a1261d;font-size:.9rem;font-weight:550;}
+.auth-submit{width:100%;margin-top:16px;}
