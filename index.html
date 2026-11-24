@@ -124,6 +124,11 @@
         <span>Groq model</span>
         <input id="groqModelInput" type="text" placeholder="llama-3.3-70b-versatile">
       </label>
+      <label class="field">
+        <span>GitHub token (pro cloud ukládání)</span>
+        <input id="ghTokenInput" type="password" autocomplete="off" placeholder="github_pat_... / ghp_...">
+      </label>
+      <p class="settings-note">Pro ukládání přímo do GitHubu potřebuje token právo <strong>Contents: Read and write</strong> pro tento repozitář. Token zůstává jen v tomto prohlížeči.</p>
       <div class="settings-actions">
         <button type="button" id="clearKeyBtn" class="btn btn-ghost">Smazat klíč</button>
         <div class="settings-actions-right">
