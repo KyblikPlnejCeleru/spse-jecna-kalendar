@@ -15,8 +15,10 @@
     <div>
       <p class="eyebrow">SPŠE Ječná</p>
       <h1>Kalendář testů a úkolů</h1>
+      <div id="modeBadge" class="mode-badge mode-issue">Režim: přes GitHub Issue</div>
     </div>
     <div class="topbar-actions">
+      <button id="settingsBtn" class="btn btn-ghost" type="button">Nastavení</button>
       <a id="repoLink" class="btn btn-ghost" target="_blank" rel="noopener">Repozitář</a>
       <a id="newIssueLink" class="btn" target="_blank" rel="noopener">+ Přidat přes Issue</a>
     </div>
@@ -26,7 +28,7 @@
     <section class="panel composer">
       <div class="panel-head">
         <h2>Rychlé přidání</h2>
-        <p>Napiš zkratkou. AI v GitHub Action to rozparsuje a zapíše do <code>data/events.json</code>.</p>
+        <p>Napiš zkratkou. S Groq klíčem se přidá hned; bez klíče se otevře GitHub Issue.</p>
       </div>
       <form id="composerForm" class="composer-form">
         <label class="field">
@@ -34,8 +36,8 @@
           <textarea id="eventInput" rows="3" placeholder="Např. matika test derivace 5.12. 9:30" required></textarea>
         </label>
         <div class="composer-row">
-          <button type="submit" class="btn btn-primary">Přidat do kalendáře</button>
-          <span class="hint">Otevře předvyplněné GitHub Issue. Po odeslání ho Action zpracuje.</span>
+          <button id="submitBtn" type="submit" class="btn btn-primary">Přidat do kalendáře</button>
+          <span class="hint">Tip: v Nastavení vlož Groq API klíč pro přímé přidání v prohlížeči.</span>
         </div>
       </form>
       <div class="examples">
@@ -89,10 +91,36 @@
   </main>
 
   <footer class="footer">
-    <span>Data: <code>data/events.json</code></span>
+    <span>Data: <code>data/events.json</code> / lokální prohlížeč</span>
     <span id="statusText">Načítám…</span>
   </footer>
 
+  <dialog id="settingsDialog" class="settings-dialog">
+    <form id="settingsForm" class="settings-form">
+      <div class="settings-head">
+        <h2>Nastavení</h2>
+        <button type="button" class="icon-btn" onclick="this.closest('dialog').close()" aria-label="Zavřít">×</button>
+      </div>
+      <p class="settings-note">Zadej Groq API klíč. Pokud ho uložíš tady, zůstane jen v tomto prohlížeči. Pokud ho dáš do <code>assets/config.js</code> v repu, bude <strong>veřejný</strong> pro všechny návštěvníky webu.</p>
+      <label class="field">
+        <span>Groq API klíč</span>
+        <input id="groqKeyInput" type="password" autocomplete="off" placeholder="gsk_...">
+      </label>
+      <label class="field">
+        <span>Groq model</span>
+        <input id="groqModelInput" type="text" placeholder="llama-3.3-70b-versatile">
+      </label>
+      <div class="settings-actions">
+        <button type="button" id="clearKeyBtn" class="btn btn-ghost">Smazat klíč</button>
+        <div class="settings-actions-right">
+          <button type="button" class="btn btn-ghost" onclick="exportCalendarEvents()">Export events.json</button>
+          <button type="submit" class="btn btn-primary">Uložit</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="./assets/config.js"></script>
   <script type="module" src="./assets/app.js"></script>
 </body>
 </html>

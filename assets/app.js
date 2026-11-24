@@ -1,7 +1,9 @@
 const TYPE_LABELS = {
   test: 'Test', ukol: 'Úkol', zkouseni: 'Zkoušení', projekt: 'Projekt', akce: 'Akce', jine: 'Jiné'
 };
+const TYPE_SET = new Set(Object.keys(TYPE_LABELS));
 
+const CFG = window.APP_CONFIG || {};
 const state = {
   events: [],
   month: startOfMonth(new Date()),
@@ -9,6 +11,9 @@ const state = {
   type: 'all',
   search: '',
   repo: detectRepo(),
+  groqKey: localStorage.getItem('groq_api_key') || CFG.groqKey || '',
+  groqModel: localStorage.getItem('groq_model') || CFG.groqModel || 'llama-3.3-70b-versatile',
+  keySource: localStorage.getItem('groq_api_key') ? 'local' : (CFG.groqKey ? 'config' : 'none'),
 };
 
 const els = {
@@ -24,7 +29,15 @@ const els = {
   newIssueLink: document.getElementById('newIssueLink'),
   composerForm: document.getElementById('composerForm'),
   eventInput: document.getElementById('eventInput'),
+  submitBtn: document.getElementById('submitBtn'),
   configWarning: document.getElementById('configWarning'),
+  settingsBtn: document.getElementById('settingsBtn'),
+  settingsDialog: document.getElementById('settingsDialog'),
+  settingsForm: document.getElementById('settingsForm'),
+  groqKeyInput: document.getElementById('groqKeyInput'),
+  groqModelInput: document.getElementById('groqModelInput'),
+  clearKeyBtn: document.getElementById('clearKeyBtn'),
+  modeBadge: document.getElementById('modeBadge'),
 };
 
 init();
@@ -32,6 +45,7 @@ init();
 async function init() {
   wireUI();
   configureLinks();
+  syncSettingsUI();
   await loadEvents();
   render();
 }
@@ -47,15 +61,47 @@ function wireUI() {
   });
   els.typeFilter.addEventListener('change', e => { state.type = e.target.value; render(); });
   els.searchInput.addEventListener('input', e => { state.search = e.target.value.trim().toLowerCase(); render(); });
-  els.composerForm.addEventListener('submit', e => {
-    e.preventDefault();
-    const text = els.eventInput.value.trim();
-    if (!text) return;
-    openIssue(text);
-  });
+  els.composerForm.addEventListener('submit', onSubmit);
   document.querySelectorAll('[data-example]').forEach(btn => {
     btn.addEventListener('click', () => { els.eventInput.value = btn.dataset.example; els.eventInput.focus(); });
   });
+  els.settingsBtn.addEventListener('click', () => els.settingsDialog.showModal());
+  els.settingsDialog.addEventListener('click', e => { if (e.target === els.settingsDialog) els.settingsDialog.close(); });
+  els.settingsForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const k = els.groqKeyInput.value.trim();
+    state.groqModel = els.groqModelInput.value.trim() || 'llama-3.3-70b-versatile';
+    if (k) {
+      localStorage.setItem('groq_api_key', k);
+      state.groqKey = k;
+      state.keySource = 'local';
+    } else {
+      localStorage.removeItem('groq_api_key');
+      state.groqKey = CFG.groqKey || '';
+      state.keySource = CFG.groqKey ? 'config' : 'none';
+    }
+    localStorage.setItem('groq_model', state.groqModel);
+    syncSettingsUI();
+    els.settingsDialog.close();
+    setStatus(state.groqKey ? 'Nastavení uloženo.' : 'Lokální klíč odstraněn.');
+  });
+  els.clearKeyBtn.addEventListener('click', () => {
+    localStorage.removeItem('groq_api_key');
+    state.groqKey = CFG.groqKey || '';
+    state.keySource = CFG.groqKey ? 'config' : 'none';
+    syncSettingsUI();
+    setStatus(CFG.groqKey ? 'Lokální klíč odstraněn (používá se vestavěný).' : 'Klíč odstraněn.');
+  });
+}
+
+function syncSettingsUI() {
+  els.groqKeyInput.value = localStorage.getItem('groq_api_key') || '';
+  els.groqModelInput.value = state.groqModel;
+  const direct = !!state.groqKey;
+  const src = state.keySource === 'config' ? 'vestavěný klíč' : state.keySource === 'local' ? 'klíč z prohlížeče' : 'bez klíče';
+  els.modeBadge.textContent = direct ? `Režim: přímé přidání (${src})` : 'Režim: přes GitHub Issue';
+  els.modeBadge.className = 'mode-badge ' + (direct ? 'mode-direct' : 'mode-issue');
+  els.submitBtn.textContent = direct ? 'Přidat do kalendáře' : 'Vytvořit Issue';
 }
 
 function detectRepo() {
@@ -64,6 +110,11 @@ function detectRepo() {
   if (host.endsWith('.github.io')) {
     const owner = host.replace('.github.io', '');
     const repo = path[0] || `${owner}.github.io`;
+    return { owner, repo };
+  }
+  const meta = document.querySelector('meta[name="gh-repo"]');
+  if (meta?.content?.includes('/')) {
+    const [owner, repo] = meta.content.split('/');
     return { owner, repo };
   }
   return null;
@@ -79,21 +130,126 @@ function configureLinks() {
     els.repoLink.addEventListener('click', e => e.preventDefault());
     els.newIssueLink.href = '#';
     els.configWarning.classList.remove('hidden');
-    els.configWarning.innerHTML = 'Aplikace běží mimo GitHub Pages. Pro přidávání přes Issue ji nasaď na GitHub Pages, nebo uprav <code>detectRepo()</code> v <code>assets/app.js</code>.';
+    els.configWarning.innerHTML = 'Repozitář nerozpoznán. Na GitHub Pages bude fungovat automaticky.';
   }
 }
 
+async function onSubmit(e) {
+  e.preventDefault();
+  const text = els.eventInput.value.trim();
+  if (!text) return;
+  if (state.groqKey) await addDirect(text);
+  else openIssue(text);
+}
+
 function openIssue(text) {
-  if (!state.repo) {
-    alert('Repozitář nebyl rozpoznán. Nasaď aplikaci na GitHub Pages.');
-    return;
-  }
+  if (!state.repo) { alert('Repozitář nebyl rozpoznán.'); return; }
   const url = new URL(`https://github.com/${state.repo.owner}/${state.repo.repo}/issues/new`);
   url.searchParams.set('template', 'pridat-udalost.yml');
   url.searchParams.set('labels', 'event');
   url.searchParams.set('title', `[Událost] ${text.slice(0, 60)}`);
   url.searchParams.set('body', `### Co se děje?\n\n${text}\n`);
   window.open(url.toString(), '_blank', 'noopener');
+  setStatus('Otevřeno GitHub Issue. Po odeslání ho Action zpracuje.');
+}
+
+async function addDirect(text) {
+  els.submitBtn.disabled = true;
+  els.submitBtn.textContent = 'Přidávám…';
+  try {
+    setStatus('Parsuji přes Groq…');
+    const event = await parseWithGroq(text);
+    if (!event.date) throw new Error('AI neurčila datum. Napiš datum explicitně (např. 5.12.2026).');
+    const record = createRecord(event, 'web');
+    const dup = state.events.find(e => e.title === record.title && e.date === record.date && e.time === record.time && e.type === record.type);
+    if (dup) { setStatus('Tahle událost už v kalendáři je.'); return; }
+    state.events.push(record);
+    state.events.sort((a, b) => (a.date + (a.time || '99:99')).localeCompare(b.date + (b.time || '99:99')));
+    saveLocalEvents();
+    state.selectedDate = record.date;
+    state.month = startOfMonth(new Date(record.date + 'T00:00:00'));
+    els.eventInput.value = '';
+    render();
+    setStatus(`Přidáno: ${record.title} (${formatHumanDate(record.date)}${record.time ? ' ' + record.time : ''}). Uloženo v tomto prohlížeči.`);
+    downloadEventsHint();
+  } catch (err) {
+    console.error(err);
+    setStatus('Chyba: ' + (err.message || err));
+    alert('Nepodařilo se přidat událost: ' + (err.message || err));
+  } finally {
+    els.submitBtn.disabled = false;
+    syncSettingsUI();
+  }
+}
+
+async function parseWithGroq(input) {
+  const now = new Date();
+  const tz = 'Europe/Prague';
+  const today = new Intl.DateTimeFormat('sv-SE', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  const weekday = new Intl.DateTimeFormat('cs-CZ', { timeZone: tz, weekday: 'long' }).format(now);
+  const system = `Jsi parser školních událostí pro studenta SPŠE Ječná. Dnes je ${weekday} ${today} (Europe/Prague).
+Z uživatelského textu extrahuj jednu událost a vrať POUZE validní JSON objekt bez markdownu.
+Schéma:
+{"title":"krátký název","subject":"předmět nebo prázdný řetězec","type":"test|ukol|zkouseni|projekt|akce|jine","date":"YYYY-MM-DD","time":"HH:MM nebo null","description":"původní/zkrácený popis","confidence":0.0}
+Pravidla:
+- Rozuměj českým zkratkám: mat/matika=Matematika, čj/cej=Český jazyk, aj/ang=Angličtina, fyz=Fyzika, prg/programko=Programování, web=Webové aplikace, db/databaze=Databáze, sit/sitě=Počítačové sítě, hw=Hardware, sw=Software, tv=tělocvik, dej=dějepis, zj=základy elektrotechniky apod.
+- "test","pisemka","zkouseni" => test/zkouseni; "ukol","du","odevzdat" => ukol; "projekt" => projekt.
+- Pokud rok chybí, zvol nejbližší budoucí datum v kontextu dneška.
+- Pokud čas chybí, dej time null. Pokud datum nelze určit, dej date null a confidence <= 0.4.
+- Nepřidávej žádný další text.`;
+
+  const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${state.groqKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: state.groqModel,
+      temperature: 0.1,
+      messages: [{ role: 'system', content: system }, { role: 'user', content: input }]
+    })
+  });
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error(`Groq API ${resp.status}: ${err.slice(0, 200)}`);
+  }
+  const data = await resp.json();
+  const content = data.choices?.[0]?.message?.content?.trim() || '';
+  const jsonStr = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+  const parsed = JSON.parse(jsonStr);
+  return normalizeEvent(parsed, input);
+}
+
+function normalizeEvent(parsed, input) {
+  return {
+    title: String(parsed.title || input).slice(0, 120),
+    subject: String(parsed.subject || '').slice(0, 80),
+    type: TYPE_SET.has(parsed.type) ? parsed.type : 'jine',
+    date: typeof parsed.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date) ? parsed.date : null,
+    time: typeof parsed.time === 'string' && /^\d{2}:\d{2}$/.test(parsed.time) ? parsed.time : null,
+    description: String(parsed.description || input).slice(0, 500),
+    confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0))
+  };
+}
+
+function createRecord(event, source) {
+  return {
+    id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)),
+    title: event.title || 'Událost',
+    subject: event.subject || '',
+    type: event.type || 'jine',
+    date: event.date,
+    time: event.time || null,
+    description: event.description || '',
+    source,
+    createdAt: new Date().toISOString()
+  };
+}
+
+function saveLocalEvents() {
+  localStorage.setItem('calendar_events', JSON.stringify({ events: state.events }));
+}
+
+function downloadEventsHint() {
+  // keep status informative; export button handles download
 }
 
 async function loadEvents() {
@@ -101,14 +257,35 @@ async function loadEvents() {
     const res = await fetch('./data/events.json', { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    state.events = Array.isArray(data.events) ? data.events : [];
-    els.statusText.textContent = `Načteno ${state.events.length} událostí`;
+    const remote = Array.isArray(data.events) ? data.events : [];
+    const local = loadLocalEvents();
+    state.events = mergeEvents(remote, local);
+    setStatus(`Načteno ${state.events.length} událostí`);
   } catch (err) {
     console.error(err);
-    state.events = [];
-    els.statusText.textContent = 'Nepodařilo se načíst data/events.json';
+    const local = loadLocalEvents();
+    state.events = local;
+    setStatus(local.length ? `Načteno ${local.length} lokálních událostí` : 'Nepodařilo se načíst data/events.json');
   }
 }
+
+function loadLocalEvents() {
+  try {
+    const raw = localStorage.getItem('calendar_events');
+    if (!raw) return [];
+    const data = JSON.parse(raw);
+    return Array.isArray(data.events) ? data.events : [];
+  } catch { return []; }
+}
+
+function mergeEvents(remote, local) {
+  const map = new Map();
+  for (const e of remote) map.set(eventKey(e), e);
+  for (const e of local) map.set(eventKey(e), e);
+  return [...map.values()].sort((a, b) => (a.date + (a.time || '99:99')).localeCompare(b.date + (b.time || '99:99')));
+}
+
+function eventKey(e) { return e.id || `${e.date}|${e.time||''}|${e.type}|${e.title}`.toLowerCase(); }
 
 function getFilteredEvents() {
   return state.events.filter(e => {
@@ -136,12 +313,10 @@ function renderCalendar(events) {
     if (!map.has(e.date)) map.set(e.date, []);
     map.get(e.date).push(e);
   }
-
   const first = startOfMonth(state.month);
-  const startOffset = (first.getDay() + 6) % 7; // Monday start
+  const startOffset = (first.getDay() + 6) % 7;
   const gridStart = addDays(first, -startOffset);
   const today = isoDate(new Date());
-
   for (let i = 0; i < 42; i++) {
     const date = addDays(gridStart, i);
     const iso = isoDate(date);
@@ -154,12 +329,10 @@ function renderCalendar(events) {
     cell.tabIndex = 0;
     cell.setAttribute('role', 'button');
     cell.setAttribute('aria-label', `${iso}, ${dayEvents.length} událostí`);
-
     const num = document.createElement('div');
     num.className = 'day-num';
     num.textContent = String(date.getDate());
     cell.appendChild(num);
-
     const wrap = document.createElement('div');
     wrap.className = 'day-events';
     dayEvents.slice(0, 3).forEach(e => {
@@ -178,7 +351,6 @@ function renderCalendar(events) {
       wrap.appendChild(more);
     }
     cell.appendChild(wrap);
-
     cell.addEventListener('click', () => { state.selectedDate = iso; renderAgenda(getFilteredEvents()); highlightSelected(); });
     cell.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cell.click(); } });
     els.calendarGrid.appendChild(cell);
@@ -205,12 +377,10 @@ function renderAgenda(events) {
   const selectedEvents = events.filter(e => e.date === selected);
   const today = isoDate(new Date());
   const upcoming = events.filter(e => e.date >= today).slice(0, 12);
-
   const showSelected = selectedEvents.length > 0;
   const list = showSelected ? selectedEvents : upcoming;
   els.agendaTitle.textContent = showSelected ? formatHumanDate(selected) : 'Nadcházející';
   els.agendaSubtitle.textContent = showSelected ? `${selectedEvents.length} událost${selectedEvents.length === 1 ? '' : selectedEvents.length < 5 ? 'i' : 'í'}` : 'Nejbližší testy a úkoly';
-
   els.agendaList.innerHTML = '';
   if (list.length === 0) {
     els.agendaList.innerHTML = '<div class="agenda-empty">Žádné události. Přidej první přes formulář nahoře.</div>';
@@ -238,6 +408,7 @@ function scrollAgendaTo(iso) {
   if (el) el.scrollIntoView({ block: 'nearest' });
 }
 
+function setStatus(msg) { els.statusText.textContent = msg; }
 function cssType(type) { return TYPE_LABELS[type] ? type : 'jine'; }
 function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function addMonths(d, n) { return new Date(d.getFullYear(), d.getMonth() + n, 1); }
@@ -248,3 +419,12 @@ function formatHumanDate(iso) {
   return new Intl.DateTimeFormat('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric' }).format(d);
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+window.exportCalendarEvents = () => {
+  const blob = new Blob([JSON.stringify({ events: state.events }, null, 2) + '\n'], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'events.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};

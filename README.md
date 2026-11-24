@@ -5,9 +5,9 @@ Jednoduchý statický kalendář hostovaný na **GitHub Pages**. Události se uk
 ## Jak to funguje
 
 - **Web (GitHub Pages)** – zobrazuje kalendář a nadcházející události.
-- **Rychlé přidání** – do pole napíšeš zkratku (např. `matika test derivace 5.12. 9:30`). Web otevře předvyplněné GitHub Issue.
-- **GitHub Action + Groq** – Action vezme text z issue/dispatch, pošle ho do Groq API, rozparsuje na strukturovanou událost a zapíše ji do `data/events.json`.
-- **Přidání přes Issue** – funguje i přímo z GitHubu (mobil, email-to-issue, atd.). Stačí vytvořit issue se štítkem `event`.
+- **Přímé přidání ve webu** – pokud je nastavený Groq klíč (vestavěný v `assets/config.js` nebo uložený v Nastavení prohlížeče), web událost rozparsuje a přidá hned.
+- **GitHub Issue / Action (záloha)** – bez klíče web otevře předvyplněné Issue. Action s `GROQ_API_KEY` secret ho může zpracovat a commitnout do `data/events.json`.
+- **Ukládání** – události přidané přímo ve webu se ukládají do `localStorage` tohoto prohlížeče. Exportovat je můžeš přes Nastavení → Export `events.json`.
 
 ## Nasazení
 
@@ -68,6 +68,6 @@ Typy: `test`, `zkouseni`, `ukol`, `projekt`, `akce`, `jine`.
 
 ## Poznámky
 
-- **Token v prohlížeči není potřeba.** Web jen otevírá předvyplněné Issue; AI volá Groq až na serveru v GitHub Action přes secret.
-- Groq free tier má limity – pro osobní školní kalendář obvykle stačí. Při chybě Action napíše detail do logu workflow.
-- Pokud AI špatně určí datum, uprav `data/events.json` ručně nebo vytvoř issue s přesnějším textem (včetně roku).
+- **Klíč vložený do nasazené webovky je veřejný.** `assets/config.js` v repu zůstává prázdný, ale Pages workflow ho při deployi naplní z `GROQ_API_KEY` secretu – výsledný web ho tedy obsahuje a návštěvník si ho může přečíst. Doporuč v Groq konzoli nastavit limity / klíč rotovat.
+- Události přidané přímo ve webu jsou uložené v `localStorage` daného prohlížeče, ne automaticky v repozitáři. Pro trvalý sdílený záznam použij Export `events.json` a commitni, nebo použij Issue/Action flow.
+- Groq free tier má limity – při chybě se zobrazí hláška ve webu / v logu workflow.

@@ -190,3 +190,17 @@ h2 { font-size: 1.2rem; }
   .day-num { width: 22px; height: 22px; font-size: 0.78rem; }
   .footer { flex-direction: column; }
 }
+
+.mode-badge { display:inline-flex; margin-top:10px; padding:5px 10px; border-radius:99px; font-size:.76rem; font-weight:700; letter-spacing:.01em; }
+.mode-issue { background:#efe9dc; color:#5f5138; }
+.mode-direct { background:var(--brand-soft); color:var(--brand-dark); }
+.settings-dialog { border:none; padding:0; background:transparent; width:min(560px, calc(100vw - 24px)); }
+.settings-dialog::backdrop { background:rgba(29,42,34,.35); backdrop-filter: blur(2px); }
+.settings-form { background:var(--panel-solid); border:1px solid var(--line); border-radius:18px; padding:20px; box-shadow:var(--shadow); }
+.settings-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
+.settings-note { color:var(--muted); font-size:.9rem; margin:0 0 16px; line-height:1.45; }
+.settings-form .field { margin-bottom:14px; }
+.settings-form input { font:inherit; font-size:.95rem; color:var(--text); background:#fff; border:1px solid var(--line); border-radius:10px; padding:11px 13px; width:100%; }
+.settings-form input:focus { outline:2px solid #a8cabb; border-color:var(--brand); }
+.settings-actions { display:flex; gap:10px; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-top:6px; }
+.settings-actions-right { display:flex; gap:10px; flex-wrap:wrap; }
